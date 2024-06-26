@@ -22,3 +22,11 @@ public class Drakkar {
         SPACE_FOR_GOODS = sp;
         MAX_SPEED = ms;
     }
+    // вычислить скорость при данном экипаже (учитываются и рабы)
+    double computeSpeed(){
+        int paddlersPairs = (currentVikings+currentSlaves)/2;
+        if(paddlersPairs > N_PAIRS){
+            paddlersPairs = N_PAIRS;
+        }
+        return MAX_SPEED*1.0*paddlersPairs/N_PAIRS;
+    }
