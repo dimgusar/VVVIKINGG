@@ -36,3 +36,48 @@ public class Village {
             }
         }
     }
+    // перевод инфы про деревню (коротая версия)
+    public String shortInfo(){
+        return String.format("%s%d", Game.villageShortNames.get(theType), level);
+    }
+
+    // координаты деревни в логических единицах (зависят от размера сетки)
+    public int getCellX(int cellSize){
+        return (int)Math.round(longitude*1.0/cellSize);
+    }
+    public int getCellY(int cellSize){
+        return (int)Math.round(lattitude*1.0/cellSize);
+    }
+    // подробное описание деревни
+    @Override
+    public String toString(){
+
+        String info = String.format("%s | ", Game.villageTypeNames.get(theType));
+        info += String.format("Уровень: %d | Широта: %d | Долгота: %d", level,lattitude,longitude);
+
+        return info;
+    }
+
+    // информация про доступную добычу
+    public String getLootInfo(){
+
+        String info = "";
+        int typesCnt = 0;
+        for(var x : LootType.values()){
+            if (all_loot.containsKey(x)) {
+                typesCnt += 1;
+            }
+        }
+        int j = 0;
+        for(var x : LootType.values()){
+            if (all_loot.containsKey(x)) {
+                info += String.format("%s: %d", Game.lootTypeNames.get(x), all_loot.get(x));
+                if(j < typesCnt-1){
+                    info += ", ";
+                }
+                j++;
+            }
+        }
+        return info;
+    }
+}

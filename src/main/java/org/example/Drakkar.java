@@ -30,3 +30,35 @@ public class Drakkar {
         }
         return MAX_SPEED*1.0*paddlersPairs/N_PAIRS;
     }
+    // добавить добычу
+    // еда и рыба хранятся как десятые доли для удобства
+    void addLoot(LootType type, int amount){
+
+        if(type==LootType.FOOD || type==LootType.FISH){
+            amount *= 10;
+        }
+        // если есть, добавить
+        if(lootInfo.containsKey(type)){
+            lootInfo.put(type, lootInfo.get(type)+amount);
+        }
+        else{
+            // иначе просто положить
+            lootInfo.put(type, amount);
+        }
+    }
+
+    // очистка драккара (возврат в гараж)
+    void clear(){
+        currentSlaves = 0;
+        currentVikings = 0;
+        for(var x : LootType.values()){
+            lootInfo.put(x, 0);
+        }
+    }
+
+    // описание текущего состояния драккара
+    @Override
+    public String toString(){
+        return String.format("%2d пар | %2d | %3d | %2d км/ч", N_PAIRS, SPACE_FOR_MEN, SPACE_FOR_GOODS, MAX_SPEED);
+    }
+}

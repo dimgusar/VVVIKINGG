@@ -1,0 +1,9 @@
+public enum VillageType {
+
+    MONASTERY,
+    TRADE_POST,
+    FISHER_VILLAGE,
+    PEASANT_VILLAGE,
+    RANCH_VILLAGE,
+    CRAFTER_VILLAGE
+}
