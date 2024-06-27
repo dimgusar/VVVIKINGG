@@ -652,3 +652,221 @@ public class MainFrame extends JFrame {
             }
 
             // завершили очердное плечо
+
+                // если это переход к очередной цели
+                if (targetIdx < theGame.conquestPath.size()) {
+                    // отчёт
+                    addInfo(String.format("Дошли до %s\n", theGame.conquestPath.get(targetIdx)));
+                    // случайный генератор
+                    Random rnd = new Random();
+                    // запрашиваем вероятность успеха с учетом размера команды и уровня цели
+                    var fightSuccessProb = Game.probabilityFightSuccess(team.size(), target.level);
+
+                    // бросаем "кубик" от 0 до 1
+                    var dice = rnd.nextDouble();
+
+                    addInfo(String.format("шанс успеха = %.2f%%\n", 100 * fightSuccessProb));
+
+                    // если кубик больше вероятности, то победа
+                    if (dice <= fightSuccessProb) {
+
+                        addInfo("Успешный бой!\n");
+
+                        // сколько свободного места на драккаре?
+                        int currentEmptySpace = curDrakkar.SPACE_FOR_GOODS;
+                        for (var loot : LootType.values()) {
+                            if (curDrakkar.lootInfo.containsKey(loot)) {
+                                if (loot == LootType.FOOD || loot == LootType.FISH) {
+
+                                    currentEmptySpace -= curDrakkar.lootInfo.get(loot) / 10;
+                                } else {
+
+                                    currentEmptySpace -= curDrakkar.lootInfo.get(loot);
+                                }
+                            }
+                        }
+                        addInfo(String.format("Свободно в грузовом трюме: %d\n", currentEmptySpace));
+
+                        // обходим все типы добычи
+                        for (var loot : LootType.values()) {
+                            // если данная цель содержит эту добычу
+                            if (target.all_loot.containsKey(loot)) {
+
+                                // достаем количество
+                                var amount = target.all_loot.get(loot);
+                                if (amount == 0) {
+                                    continue;
+                                }
+                                // если нет свободного места
+                                if (currentEmptySpace == 0) {
+                                    addInfo("Нет места!\n");
+                                }
+                                // высчитываем, сколько можно загрузить
+                                int loadedAmount = amount;
+                                if (amount <= currentEmptySpace) {
+                                    currentEmptySpace -= amount;
+                                } else {
+                                    loadedAmount = currentEmptySpace;
+                                    currentEmptySpace = 0;
+                                }
+
+                                // добавляем
+                                curDrakkar.addLoot(loot, loadedAmount);
+
+                                // отчёт
+                                addInfo(String.format("Загрузили %d мер %s\n", loadedAmount, Game.lootTypeNames.get(loot)));
+                                if (loadedAmount < amount) {
+                                    // если часть не влезла - показываем это
+                                    addInfo(String.format("Выбросили %d мер %s\n", amount - loadedAmount, Game.lootTypeNames.get(loot)));
+                                }
+
+                            }
+                        }
+
+                        // берем рабов
+                        int slaves = target.slaves;
+                        // число загруженных рабов
+                        int slavesTaken = 0;
+                        // если пустого места в трюме экипажа хватает
+                        if (slaves <= curDrakkar.SPACE_FOR_MEN - curDrakkar.currentVikings - curDrakkar.currentSlaves) {
+                            // берем всех
+                            slavesTaken = slaves;
+                        } else {
+                            // берем столько, сколько есть места
+                            slavesTaken = curDrakkar.SPACE_FOR_MEN - curDrakkar.currentVikings - curDrakkar.currentSlaves;
+                        }
+                        /// если никого не взяли
+                        if (slavesTaken == 0) {
+                            addInfo("Нет места для рабов!!!");
+                        }
+
+                        // загружаем рабов
+                        curDrakkar.currentSlaves += slavesTaken;
+
+                        // отчёт
+                        if (slavesTaken > 0) {
+                            addInfo(String.format("Загрузили %d рабов\n", slavesTaken));
+                        }
+                        if (slaves > slavesTaken) {
+                            addInfo(String.format("Выбросили %d рабов\n", slaves - slavesTaken));
+                        }
+                        // +1 победа
+                        numberOfVictories += 1;
+                        addInfo("\n");
+                    } else {
+                        // отчёт - поражение
+                        addInfo("Поражение!(((\n\n");
+                    }
+                } else {
+
+                    // если добрались до дома
+                    addInfo("Вернулись домой!\n");
+                    if (numberOfVictories == 0) {
+
+                        // если нет побед - плохо
+                        addInfo("0 побед - поход будет провален!\n");
+                        curDrakkar.clear();
+                        return;
+                    }
+
+                    // отчет про добычу
+                    addInfo("Содержание трюма:\n");
+                    int cnt = 0;
+                    int fullSilver = 0;
+                    // по типам добычи
+                    for (var x : LootType.values()) {
+
+                        // если такой тип есть
+                        if (curDrakkar.lootInfo.containsKey(x) && curDrakkar.lootInfo.get(x) > 0) {
+
+                            // показываем
+                            int amount = curDrakkar.lootInfo.get(x);
+                            // рыбу и еду делим на 10
+                            if (x == LootType.FOOD || x == LootType.FISH) {
+
+                                addInfo(String.format("%s: %d/10\n", Game.lootTypeNames.get(x), curDrakkar.lootInfo.get(x)));
+
+                                // считаем сколько серебра можно получить
+                                fullSilver += theGame.priceSilverPerLoot.get(x) * amount / 10;
+                            } else {
+                                addInfo(String.format("%s: %d\n", Game.lootTypeNames.get(x), curDrakkar.lootInfo.get(x)));
+
+                                fullSilver += theGame.priceSilverPerLoot.get(x) * amount;
+                            }
+
+                            // +1 тип
+                            cnt++;
+                        }
+                    }
+                    // если есть рабы - отчёт
+                    if (curDrakkar.currentSlaves > 0) {
+                        addInfo(String.format("Рабов: %d\n", curDrakkar.currentSlaves));
+                    }
+
+                    // добавляем серебро с рабов
+                    fullSilver += curDrakkar.currentSlaves * theGame.PRICE_SILVER_PER_SLAVE;
+
+
+                    // запрос всплывающего окна - согласиться или нет
+                    var userAnswer = JOptionPane.showConfirmDialog(null, "Согласиться с моделированием?", "...", JOptionPane.YES_NO_OPTION);
+
+
+                    // если согласен
+                    if (userAnswer == JOptionPane.OK_OPTION) {
+                        // очистка драккара
+                        curDrakkar.clear();
+
+                        if (cnt == 0) {
+
+                            addInfo("Пусто!");
+                        } else {
+                            // отчёт о полученном серебре
+                            addInfo(String.format("Добыча продана за %d мер серебра!\n", fullSilver));
+                            addInfo(String.format("Команда получает %d мер серебра\n", fullSilver / 2));
+                            addInfo(String.format("Предводитель получает %d мер серебра\n", fullSilver - fullSilver / 2));
+
+                            // предводитель получает половину
+                            theGame.silverPieces += fullSilver - fullSilver / 2;
+                        }
+
+                        // всем викингам кто был в походе снимаем отметку
+                        for (int k = 0; k < vikingModel.size(); ++k) {
+                            if (vikingModel.get(k).startsWith("[*]")) {
+
+                                for (int j = 0; j < theGame.allVikings.size(); ++j) {
+
+                                    if (vikingModel.get(k).contains(theGame.allVikings.get(j).name)) {
+                                        // и добавляем +1 поход в инфо
+                                        theGame.allVikings.get(j).totalRides += 1;
+                                        break;
+                                    }
+                                }
+                                vikingModel.set(k, vikingModel.get(k).substring(3));
+                            }
+                        }
+
+                        // драккар износился в походе, теряет скорость (но меньше 10 км/час не будет)
+                        if (curDrakkar.MAX_SPEED > 10) {
+                            curDrakkar.MAX_SPEED -= 1;
+                        }
+
+                        showCurrentGameStats();
+                        refresh();
+                        nextYearButton.setEnabled(true);
+                        modelButton.setEnabled(false);
+                        theGame.conquestPath.clear();
+                        // обновили инфу
+
+                    }
+
+
+                }
+            }
+            // для удобства моделируем нажатие на PAGE_DOWN
+            // чтобы сразу видеть конец отчёта
+            robot.keyPress(KeyEvent.VK_PAGE_DOWN);
+            robot.keyRelease(KeyEvent.VK_PAGE_DOWN);
+
+            sail_x = -100;
+            sail_y = -100;
+        }
