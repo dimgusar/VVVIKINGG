@@ -288,3 +288,146 @@ public class MainFrame extends JFrame {
 
                 }
             });
+
+            // обработка нажатия на кнопку "След. год"
+            nextYearButton.addActionListener(new AbstractAction() {
+                @Override
+                public void actionPerformed(ActionEvent e) {
+
+                    // каждый викинг стареет на год
+                    for (int k = 0; k < theGame.allVikings.size(); ++k) {
+                        theGame.allVikings.get(k).fullYears += 1;
+                    }
+
+                    // меняем текущую дату на начало след. навигации
+                    theGame.currentDate = LocalDate.of(theGame.currentDate.getYear() + 1, Month.MAY, 6);
+
+                    // загружаем викингов и драккары (после похода драккар становится медленнее)
+                    loadVikings();
+                    loadDrakkars();
+                    showCurrentGameStats();
+                    // очищаем журнал
+                    journalTextArea.setText("");
+                    // разблокируем кнопку моделирование похода
+                    modelButton.setEnabled(true);
+                    // блокируем кнопку след. года
+                    nextYearButton.setEnabled(false);
+                    refresh();
+
+                }
+            });
+
+            // обработка кнопки "Моделирование похода"
+            modelButton.addActionListener(new AbstractAction() {
+                @Override
+                public void actionPerformed(ActionEvent e) {
+
+                    modelRide();
+                }
+            });
+
+            // обработка клика мышкой (выбор целей похода)
+            this.addMouseListener(new MouseAdapter() {
+                @Override
+                public void mouseClicked(MouseEvent e) {
+                    super.mouseClicked(e);
+
+                    // экранные координаты
+                    int x = e.getX();
+                    int y = e.getY();
+
+                    // логические координаты
+                    int cellx = x / D;
+                    int celly = y / D;
+
+                    // обходим деревни
+                    for (int k = 0; k < theGame.allVillages.size(); ++k) {
+
+                        var village = theGame.allVillages.get(k);
+
+                        // если логические координаты правильные
+                        if (cellx == village.getCellX(D) && celly == village.getCellY(D)) {
+
+
+                            // для левой кнопки
+                            if (e.getButton() == MouseEvent.BUTTON1) {
+                                if (theGame.conquestPath.contains(village)) {
+                                    addInfo("Этот пункт уже в маршруте!\n");
+                                    return;
+                                } else {
+                                    theGame.conquestPath.add(village);
+                                    addInfo(String.format("Добавлено в маршрут:\n[%s][%s]\n", village, village.getLootInfo()));
+                                    repaint();
+                                }
+                            } else {
+                                // для правой кнопки
+                                if (theGame.conquestPath.contains(village)) {
+                                    theGame.conquestPath.remove(village);
+                                    addInfo(String.format("Извлечено из маршрута:\n[%s][%s]\n", village, village.getLootInfo()));
+                                    repaint();
+                                } else {
+                                    addInfo("Этот пункт не в маршруте!\n");
+                                    return;
+
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+
+            // устанавливаем размеры всех компонент
+            label1.setBounds(W / 2 + 25, 45, 120, 30);
+            label2.setBounds(W / 2 + 375, 45, 120, 30);
+            drakkarListView.setBounds(W / 2 + 25, 70, 300, 250);
+            vikScrollPane.setBounds(W / 2 + 340, 70, 230, 250);
+            journalPane.setBounds(W / 2 + 25, 325, 545, 350);
+            modelButton.setFocusPainted(false);
+            modelButton.setBounds(W * 3 / 4 - 100, 715, 200, 30);
+            everyHour.setBounds(W / 2 + 25, 675, 200, 28);
+            infoLabel.setBounds(W / 2 + 25, 10, 240, 25);
+            nextYearButton.setBounds(W / 2 + 340, 10, 125, 25);
+            addViking.setBounds(W / 2 + 475, 10, 95, 25);
+            loadDrakkarsFromFileButton.setBounds(W / 2 + 170, 45, 155, 22);
+        }
+
+        // что показывать для состояния игры (дата и серебро)
+        public void showCurrentGameStats() {
+            infoLabel.setText(String.format("Дата: %s  |  Серебро: %d", theGame.currentDate, theGame.silverPieces));
+        }
+
+        // как прогружать инфу про викингов в JList
+        public void loadVikings() {
+
+            // очистка всего
+            vikingModel.clear();
+
+            // заполяем список тествовой инфой про викингов
+            for (int k = 0; k < theGame.allVikings.size(); ++k) {
+                var vik = theGame.allVikings.get(k);
+                vikingModel.addElement(String.format("%s, %d, %c, %d", vik.name, vik.fullYears, vik.sex, vik.totalRides));
+            }
+        }
+
+        // аналогично для драккаров, только с шапкой
+        public void loadDrakkars() {
+
+            drakkarModel.clear();
+            drakkarModel.addElement("Греб. пар|Чел. макс|Груз макс|Макс v км/ч");
+            drakkarModel.addElement("---------|---------|---------|-----------");
+            for (int k = 0; k < theGame.allDrakkars.size(); ++k) {
+                var cd = theGame.allDrakkars.get(k);
+                drakkarModel.addElement(String.format("   %2d    |    %2d   |   %3d   |   %2d\n", cd.N_PAIRS, cd.SPACE_FOR_MEN, cd.SPACE_FOR_GOODS, cd.MAX_SPEED));
+            }
+
+        }
+
+        // для надёжной перерисовки
+        public void refresh() {
+
+            masterFrame.setState(ICONIFIED);
+            masterFrame.setState(JFrame.NORMAL);
+        }
+
+        // моделирование набега
+        public void modelRide() {
