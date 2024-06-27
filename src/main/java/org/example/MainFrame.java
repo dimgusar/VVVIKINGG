@@ -1,5 +1,4 @@
 import org.yaml.snakeyaml.Yaml;
-
 import javax.imageio.ImageIO;
 import javax.swing.*;
 import javax.swing.border.LineBorder;
@@ -431,3 +430,225 @@ public class MainFrame extends JFrame {
 
         // моделирование набега
         public void modelRide() {
+        }
+
+        // очистка журнала
+            journalPane.requestFocusInWindow();
+            journalTextArea.setText("");
+
+
+        // берем индекс элемента списка драккаров
+        int drakkarInd = drakkarListView.getSelectedIndex();
+
+
+        // мультивыбор не принимаем
+            if (drakkarListView.getSelectedValuesList().size() != 1) {
+            JOptionPane.showMessageDialog(null, "Выберите ровно 1 драккар!", "...", JOptionPane.INFORMATION_MESSAGE);
+            return;
+
+        }
+
+        // индексы 0 и 1 относятся к шапке, а не драккару
+            if (drakkarInd < 2) {
+            JOptionPane.showMessageDialog(null, "Выберите драккар и команду!", "...", JOptionPane.INFORMATION_MESSAGE);
+            return;
+        }
+
+        // берем драккар из экземпляра игры
+        var curDrakkar = theGame.allDrakkars.get(drakkarInd - 2);
+
+        // список выбранных викингов (точнее, их текстового представления, но это не важно)
+        var team = new ArrayList<String>();
+            for (int k = 0; k < vikingModel.size(); ++k) {
+            // если в GUI напротив соотв. викинга стоит метка, значит, он в команде
+            if (vikingModel.get(k).startsWith("[*]")) {
+
+                // сначала проверяем, что данный викинг не слишком старый
+                for (int j = 0; j < theGame.allVikings.size(); ++j) {
+                    if (vikingModel.get(k).contains(theGame.allVikings.get(j).name)) {
+
+                        if (theGame.allVikings.get(j).fullYears >= 55) {
+                            JOptionPane.showMessageDialog(null, "Викинги 55 лет и старше не могут идти в поход!", "...", JOptionPane.ERROR_MESSAGE);
+                            return;
+                        }
+                    }
+                }
+
+                // добавляем в команду
+                team.add(vikingModel.get(k));
+            }
+        }
+
+        // если никого не выбрали
+            if (team.size() == 0) {
+            JOptionPane.showMessageDialog(null, "Выберите команду!", "...", JOptionPane.INFORMATION_MESSAGE);
+            return;
+        }
+        // если только 1 - нельзя
+            if (team.size() == 1) {
+            JOptionPane.showMessageDialog(null, "Нужно минимум 2 викинга, чтобы грести!", "...", JOptionPane.INFORMATION_MESSAGE);
+            return;
+
+        }
+
+        // если больше чем места на выбранном драккаре - нельзя
+            if (team.size() > curDrakkar.SPACE_FOR_MEN) {
+            JOptionPane.showMessageDialog(null, "Недостаточно места, команда должна быть меньше, или драккар больше!", "...", JOptionPane.INFORMATION_MESSAGE);
+            return;
+        }
+
+        // если не выбраны цели набега
+            if (theGame.conquestPath.size() == 0) {
+            JOptionPane.showMessageDialog(null, "Выбирайте цели набега по порядку!", "...", JOptionPane.INFORMATION_MESSAGE);
+            return;
+        }
+
+        // приступаем к моделированию
+        addInfo("-------------------МОДЕЛИРОВАНИЕ НАБЕГА-----------------\n");
+        addInfo(String.format("Число викингов: %d\n", team.size()));
+
+        // счётчик часов
+        int fullHours = 0;
+
+        // загружаем еду
+            curDrakkar.addLoot(LootType.FOOD, team.size() * theGame.START_FOOD_PER_VIKING);
+        // загружаем викингов
+        curDrakkar.currentVikings = team.size();
+
+        // координаты картинки корабля
+        sail_x = 0;
+        sail_y = 0;
+        // число побед
+        int numberOfVictories = 0;
+
+        // цикл по всем переходам (включая переход домой)
+            for (int targetIdx = 0; targetIdx <= theGame.conquestPath.size(); ++targetIdx) {
+
+            // сколько прошли внутри данного плеча
+            double leg_path = 0;
+
+            // очередная цель (если домой, будет нулл)
+            Village target = null;
+            // длина перехода
+            double target_path = 0;
+            // угол
+            double angle_rad = 0;
+
+            if (targetIdx == 0) {
+                // первая цель (берем угол отностиельно 0,0)
+                target = theGame.conquestPath.get(targetIdx);
+                target_path = Math.sqrt(Math.pow(target.lattitude, 2) + Math.pow(target.longitude, 2));
+                angle_rad = Math.atan2(target.lattitude, target.longitude);
+            } else if (targetIdx < theGame.conquestPath.size()) {
+                // остальные цели (берем угол относительно пред. цели)
+                target = theGame.conquestPath.get(targetIdx);
+                var prev_target = theGame.conquestPath.get(targetIdx - 1);
+                target_path = Math.sqrt(Math.pow(target.lattitude - prev_target.lattitude, 2) + Math.pow(target.longitude - prev_target.longitude, 2));
+                angle_rad = Math.atan2(target.lattitude - prev_target.lattitude, target.longitude - prev_target.longitude);
+            } else {
+                // переход домой
+                var last_target = theGame.conquestPath.get(targetIdx - 1);
+                target_path = Math.sqrt(Math.pow(last_target.lattitude, 2) + Math.pow(last_target.longitude, 2));
+                angle_rad = Math.atan2(-last_target.lattitude, -last_target.longitude);
+            }
+
+            // показываем длину перехода и скорость на данном плече
+            addInfo(String.format("Новый переход: %d км\n", (int) target_path));
+            addInfo(String.format("Скорость: %.2f км/ч\n", curDrakkar.computeSpeed()));
+
+            // пока не сделали сколько нужно км.
+            while (leg_path < target_path) {
+                // +1 час
+                fullHours += 1;
+                // сколько км прошли за час
+                double hour_dist = curDrakkar.computeSpeed();
+
+                // увеличим пройденное плечо
+                leg_path += hour_dist;
+
+                // применим это для обновления координаты картинки корабля
+                sail_x += hour_dist * Math.cos(angle_rad);
+                sail_y += hour_dist * Math.sin(angle_rad);
+                // в начале каждых суток - обед
+                if (fullHours % 24 == 1) {
+                    // time to eat
+
+                    // сколько есть еды (в десятых долях) (может быть нулл)
+                    var availFood_x10_ref = curDrakkar.lootInfo.get(LootType.FOOD);
+                    // сколько есть рыбы (тоже в десятых долях) (может быть нулл)
+                    var availFish_x10_ref = curDrakkar.lootInfo.get(LootType.FISH);
+
+                    // нулл переводятся в 0
+                    int availFood_x10 = availFood_x10_ref == null ? 0 : availFood_x10_ref;
+                    int availFish_x10 = availFish_x10_ref == null ? 0 : availFish_x10_ref;
+
+                    // сколько нужно десятых долей на обед (рабы считаются)
+                    int need_x10 = curDrakkar.currentVikings + curDrakkar.currentSlaves;
+                    // отчет в журнал
+                    addInfo(String.format("День #%d\n", fullHours / 24 + 1));
+                    addInfo(String.format("Запасы: еда=%d/10 рыба=%d/10\n", availFood_x10, availFish_x10));
+                    // если нужно больше чем сумма еды и рыбы, то плохо
+                    if (need_x10 > availFood_x10 + availFish_x10) {
+                        addInfo("Не хватило еды!!! Поход будет провален!!!");
+                        // очищаем драккар
+                        curDrakkar.clear();
+                        return;
+                    }
+
+                    // едим еду
+                    int food_eaten_x10 = need_x10;
+                    int fish_eaten_x10 = 0;
+                    // декремент еды (можем перейти в минус)
+                    availFood_x10 -= need_x10;
+                    // если минус
+                    if (availFood_x10 < 0) {
+                        // переходим на рыбу
+                        availFish_x10 += availFood_x10;
+                        food_eaten_x10 += availFood_x10;
+                        fish_eaten_x10 -= availFood_x10;
+                        availFood_x10 = 0;
+                    }
+                    // отчёт про съеденное
+                    addInfo("Съели: ");
+                    if (food_eaten_x10 > 0) {
+                        addInfo(String.format("%d/10 мер еды\n", food_eaten_x10));
+                    }
+                    if (fish_eaten_x10 > 0) {
+                        addInfo(String.format(" %d/10 мер рыбы\n", fish_eaten_x10));
+                    }
+
+                    // вставляем обновлённое число еды и рыбы
+                    curDrakkar.lootInfo.put(LootType.FOOD, availFood_x10);
+                    curDrakkar.lootInfo.put(LootType.FISH, availFish_x10);
+                }
+
+                try {
+                    // задерживаемся для создание эффекта анимации
+                    Thread.sleep(24);
+
+                    if (fullHours % 24 == 23) {
+                        // new day
+                        // каждые 24 часа - новый день
+                        theGame.currentDate = theGame.currentDate.plusDays(1);
+                    }
+
+                    // если поход длится больше 60 дней
+                    if (fullHours > 60 * 24) {
+                        addInfo("Набег длиннее 60 дней -> поход провален!\n");
+                        curDrakkar.clear();
+                        return;
+                    }
+                    // если выбран чекбокс "Каждый час" - то добавляем ежечасный отчёт
+                    if (everyHour.isSelected()) {
+                        addInfo(String.format("Часов в пути: %d\n", fullHours));
+                        addInfo(String.format("Пройдено км: %.2f\n", leg_path));
+
+                    // запрашиваем перерисовку, чтобы была анимацию
+                    paintImmediately(0, 0, W / 2, H);
+
+                } catch (InterruptedException ex) {
+                    throw new RuntimeException(ex);
+                }
+            }
+
+            // завершили очердное плечо
