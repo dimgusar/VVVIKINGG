@@ -65,8 +65,14 @@ public class MainFrame extends JFrame {
         JCheckBox everyHour = new JCheckBox("Отчёт каждый час");
         MainFrame masterFrame = null;
         MainPanel thePanel = null;
+        GamePanel thePanel = null;
+        BufferedImage islandImg = null;
+        BufferedImage drakkarImg = null;
+        BufferedImage monkImg = null;
+        public GamePanel(MainFrame mf) {
 
-        MainPanel(MainFrame mf) {
+
+            MainPanel(MainFrame mf) {
             masterFrame = mf;
             thePanel = this;
             // для полного контроля будем управлять вручную
@@ -133,8 +139,7 @@ public class MainFrame extends JFrame {
             // если есть пометка [*], значит выбран в поход
             // если кликнуть по такому, выбор отменяется
             vikingListView.addListSelectionListener(new ListSelectionListener() {
-                @Override
-                public void valueChanged(ListSelectionEvent e) {
+
                     if (e.getValueIsAdjusting()) return;
                     int k = vikingListView.getSelectedIndex();
                     if (k >= 0) {
@@ -174,5 +179,112 @@ public class MainFrame extends JFrame {
                             JOptionPane.showMessageDialog(null, "Недостаточно денег!", "...", JOptionPane.ERROR_MESSAGE);
                         }
                     }
+                }
+            });
+// обработка кнопки "Загрузить из YAML"
+            loadDrakkarsFromFileButton.addActionListener(new AbstractAction() {
+                @Override
+                public void actionPerformed(ActionEvent e) {
+
+                    // используем JFileChooser
+                    JFileChooser fc = new JFileChooser();
+                    fc.setFileFilter(new FileFilter() {
+                        @Override
+                        public boolean accept(File f) {
+                            if (f.isDirectory()) {
+                                return true;
+                            }
+                            final String name = f.getName();
+                            // фильтр - чтобы предлагал только правильные файлы
+                            return name.endsWith(".yaml") || name.endsWith(".yml");
+                        }
+
+                        @Override
+                        public String getDescription() {
+                            return "*.yaml,*.yml";
+                        }
+                    });
+
+                    // открываем диалог
+                    var res = fc.showOpenDialog(thePanel);
+
+                    // если файл был выбрат
+                    if (res == JFileChooser.APPROVE_OPTION) {
+
+                        // используем библиотеку
+                        Yaml yaml = new Yaml();
+                        // открываем поток на чтение файла
+                        InputStream inputStream = null;
+                        try {
+                            inputStream = new FileInputStream(fc.getSelectedFile());
+                        } catch (FileNotFoundException ex) {
+                            throw new RuntimeException(ex);
+                        }
+
+                        try {
+                            // загружаем объекты в мэп
+                            Map<String, Object> obj = yaml.load(inputStream);
+                            // готовимся создавать список новых драккаров
+                            ArrayList<Drakkar> fromFile = new ArrayList<>();
+                            // обходим набор
+                            for (var x : obj.entrySet()) {
+
+                                // предполагаем, что там спрятан список драккаров произвольной длины
+                                ArrayList<Map<String, Integer>> data = (ArrayList<Map<String, Integer>>) x.getValue();
+
+                                // обходим этот список
+                                for (var t : data) {
+                                    //      System.out.print(t);
+
+                                    try {
+
+                                        // пытаемся доставать параметры для очередного драккара
+                                        int p = t.get("pairs");
+                                        int hs = t.get("human_space");
+                                        int cs = t.get("cargo_space");
+                                        int ms = t.get("max_speed");
+
+                                        // если все ок, конструируем и добавляем
+                                        fromFile.add(new Drakkar(p, hs, cs, ms));
+
+
+                                    } catch (NullPointerException npe) {
+                                        JOptionPane.showMessageDialog(null, "Некорректные данные в YAML!", "...", JOptionPane.ERROR_MESSAGE);
+                                        if (fromFile.size() > 0) {
+                                            theGame.allDrakkars.clear();
+                                        } else {
+                                            return;
+                                        }
+                                    }
+                                }
+
+                                if (fromFile.size() == 0) {
+                                    // если ничего не нашли, старый список не портится
+                                    JOptionPane.showMessageDialog(null, "Нет данных!", "...", JOptionPane.INFORMATION_MESSAGE);
+                                } else {
+
+                                    // иначе старые убираем, новые вставляем
+                                    theGame.allDrakkars.clear();
+                                    theGame.allDrakkars.addAll(fromFile);
+
+                                    loadDrakkars();
+
+                                    refresh();
+                                }
+
+                                try {
+                                    // закрываем поток
+                                    inputStream.close();
+                                } catch (IOException ex) {
+                                    throw new RuntimeException(ex);
+                                }
+                                return;
+                            }
+                        } catch (ClassCastException cce) {
+                            JOptionPane.showMessageDialog(null, "Bad file!!!", "...", JOptionPane.ERROR_MESSAGE);
+                        }
+
+                    }
+
                 }
             });
