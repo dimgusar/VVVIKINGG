@@ -870,3 +870,140 @@ public class MainFrame extends JFrame {
             sail_x = -100;
             sail_y = -100;
         }
+        // отрисовка панели
+        @Override
+        public void paintComponent(Graphics g) {
+
+            Graphics2D g2 = (Graphics2D) g;
+            g2.setRenderingHint(KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+
+            // море
+            g2.setColor(Color.decode("#ADD8E6"));
+            g2.fillRect(0, 0, W / 2, H);
+            g2.setColor(Color.BLACK);
+            g2.setStroke(new BasicStroke(0.5f));
+
+            // сетка
+            for (int k = 0; k < W / 2 / D; ++k) {
+                g2.drawLine(k * D, 0, k * D, H);
+            }
+            for (int k = 0; k < H / 2; ++k) {
+                g2.drawLine(0, k * D, W / 2, k * D);
+            }
+            // база
+            g2.setFont(new Font("Arial Unicode MS", 1, 24));
+            g2.drawString("X", 4, 22);
+
+
+            g2.setColor(Color.LIGHT_GRAY);
+            // обход по деревням
+            for (int k = 0; k < theGame.allVillages.size(); ++k) {
+
+                var village = theGame.allVillages.get(k);
+                // логические координаты
+                int cellx = village.getCellX(D);
+                int celly = village.getCellY(D);
+                // берем картинку (может быть и нулл)
+                g2.drawImage(islandImg, cellx*D-D, celly*D-D+1, null);
+                var img = vilTypeToImg.get(village.theType);
+                if (img == null) {
+                    // отрисовка
+                    g2.fillRect(cellx * D + 1, celly * D + 1, D - 2, D - 2);
+                    g2.fillRect(cellx * D + 1, celly * D + 1, D - 2, D - 2);
+                } else {
+                    g2.drawImage(img, cellx * D, celly * D - img.getHeight(), null);
+                }
+
+            }
+
+            // отисовка подписей (краткая инфа про деревни)
+            g2.setColor(Color.BLACK);
+            g2.setFont(new Font("Courier New", Font.BOLD, 12));
+            for (int k = 0; k < theGame.allVillages.size(); ++k) {
+                var village = theGame.allVillages.get(k);
+                int cellx = village.getCellX(D);
+                int celly = village.getCellY(D);
+                g2.drawString(theGame.allVillages.get(k).shortInfo(), cellx * D + 3, celly * D + D / 2 + 3);
+            }
+            // если есть маршрут набега
+            if (theGame.conquestPath.size() > 0) {
+                g2.setColor(Color.red);
+                g2.setStroke(new BasicStroke(1.f));
+                // рисуем каждое плечо
+                g2.drawLine(D / 2, D / 2, theGame.conquestPath.getFirst().getCellX(D) * D + D / 2, theGame.conquestPath.getFirst().getCellY(D) * D + D / 2);
+                for (int k = 1; k < theGame.conquestPath.size(); ++k) {
+                    var x1 = theGame.conquestPath.get(k - 1).getCellX(D) * D + D / 2;
+                    var y1 = theGame.conquestPath.get(k - 1).getCellY(D) * D + D / 2;
+                    var x2 = theGame.conquestPath.get(k).getCellX(D) * D + D / 2;
+                    var y2 = theGame.conquestPath.get(k).getCellY(D) * D + D / 2;
+
+                    g2.drawLine(x1, y1, x2, y2);
+                }
+                // рисуем последнее плечо
+                g2.drawLine(theGame.conquestPath.getLast().getCellX(D) * D + D / 2, theGame.conquestPath.getLast().getCellY(D) * D + D / 2, D / 2, D / 2);
+            }
+
+
+            if (drakkarImg != null) {
+                // если есть картинка драккара
+                g2.drawImage(drakkarImg, (int) sail_x - D, (int) sail_y - D, null);
+            } else {
+                // инача прсто иконкой
+                g2.setColor(Color.BLACK);
+                g2.setFont(new Font("Arial Unicode MS", 1, 24));
+                g2.drawString("\u26F5", (int) sail_x, (int) sail_y + D);
+            }
+        }
+
+        // добавить текст в журнал (JTextArea)
+        void addInfo(String str) {
+
+            journalTextArea.setText(journalTextArea.getText() + str);
+        }
+
+        // загрузка картинки (расчитано на jar)
+        public BufferedImage loadImage(String fileName) {
+
+            BufferedImage buff = null;
+            try {
+                var stream = getClass().getResourceAsStream(fileName);
+                if (stream == null) {
+                    return ImageIO.read(new File("img/"+fileName));
+                }
+                buff = ImageIO.read(stream);
+            } catch (IOException e) {
+
+                e.printStackTrace();
+                return null;
+            }
+            return buff;
+
+        }
+
+    }
+
+    public MainFrame() {
+        try {
+            // системный Look and Feel (действует на кнопки  и пр.)
+            UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName());
+        } catch (ClassNotFoundException | InstantiationException | IllegalAccessException |
+                 UnsupportedLookAndFeelException e) {
+            throw new RuntimeException(e);
+        }
+        // размеры фрейма
+        this.setPreferredSize(new Dimension(W, H));
+        this.setMinimumSize(new Dimension(W, H));
+        this.setMaximumSize(new Dimension(W, H));
+        // размер экрана
+        Dimension d = Toolkit.getDefaultToolkit().getScreenSize();
+        this.setResizable(false);
+        this.setDefaultCloseOperation(EXIT_ON_CLOSE);
+        this.setTitle("Планировщик набегов");
+        // добавим панель внутрь фрейма
+        this.getContentPane().add(new GamePanel(this));
+        // разместим фрейм посередине экрана
+        this.setLocation(d.width / 2 - getWidth() / 2, d.height / 2 - getHeight() / 2);
+
+        this.setVisible(true);
+    }
+}
